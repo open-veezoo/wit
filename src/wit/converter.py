@@ -12,24 +12,24 @@ class WitMarkdownConverter(MarkdownConverter):
     """Custom markdown converter with wit-specific options."""
     
     def __init__(self, **options):
-        self.strip_links = options.pop("strip_links", False)
-        self.include_images = options.pop("include_images", True)
-        self.code_language = options.pop("code_language", "auto")
+        self._strip_links = options.pop("strip_links", False)
+        self._include_images = options.pop("include_images", True)
+        self._code_language = options.pop("code_language", "auto")
         super().__init__(**options)
     
-    def convert_a(self, el, text, convert_as_inline):
+    def convert_a(self, el, text, *args, **kwargs):
         """Convert anchor tags, optionally stripping links."""
-        if self.strip_links:
+        if self._strip_links:
             return text
-        return super().convert_a(el, text, convert_as_inline)
+        return super().convert_a(el, text, *args, **kwargs)
     
-    def convert_img(self, el, text, convert_as_inline):
+    def convert_img(self, el, text, *args, **kwargs):
         """Convert image tags."""
-        if not self.include_images:
+        if not self._include_images:
             return ""
-        return super().convert_img(el, text, convert_as_inline)
+        return super().convert_img(el, text, *args, **kwargs)
     
-    def convert_pre(self, el, text, convert_as_inline):
+    def convert_pre(self, el, text, *args, **kwargs):
         """Convert pre tags with optional language detection."""
         # Try to detect language from class
         code_el = el.find("code")
@@ -60,7 +60,7 @@ class WitMarkdownConverter(MarkdownConverter):
             code_text = el.get_text()
         
         # Auto-detect language if enabled
-        if not lang and self.code_language == "auto":
+        if not lang and self._code_language == "auto":
             lang = _detect_language(code_text)
         
         return f"\n```{lang}\n{code_text.strip()}\n```\n"

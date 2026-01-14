@@ -44,10 +44,12 @@ def get_changed_files() -> list[str]:
         )
         
         files = []
-        for line in result.stdout.strip().split("\n"):
+        # Use rstrip() to preserve leading spaces which are part of the status format
+        for line in result.stdout.rstrip().split("\n"):
             if line:
                 # Format: XY filename or XY -> newfilename (for renames)
-                # Skip the status codes (first 3 chars)
+                # XY = 2 status chars, then space, then filename
+                # Skip the status codes (first 3 chars: XY + space)
                 filepath = line[3:].strip()
                 
                 # Handle renames
@@ -77,7 +79,8 @@ def get_added_or_modified_files() -> list[str]:
         )
         
         files = []
-        for line in result.stdout.strip().split("\n"):
+        # Use rstrip() to preserve leading spaces which are part of the status format
+        for line in result.stdout.rstrip().split("\n"):
             if line:
                 status = line[:2]
                 filepath = line[3:].strip()
