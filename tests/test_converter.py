@@ -1,0 +1,219 @@
+"""Tests for converter module."""
+
+import pytest
+
+from wit.converter import html_to_markdown, add_metadata
+
+
+class TestHtmlToMarkdown:
+    """Tests for html_to_markdown function."""
+    
+    def test_simple_html(self):
+        """Test converting simple HTML."""
+        html = "<h1>Title</h1><p>Some text here.</p>"
+        result = html_to_markdown(html, {})
+        
+        assert "# Title" in result
+        assert "Some text here." in result
+    
+    def test_heading_levels(self):
+        """Test converting different heading levels."""
+        html = "<h1>H1</h1><h2>H2</h2><h3>H3</h3>"
+        result = html_to_markdown(html, {"heading_style": "atx"})
+        
+        assert "# H1" in result
+        assert "## H2" in result
+        assert "### H3" in result
+    
+    def test_paragraph(self):
+        """Test converting paragraphs."""
+        html = "<p>First paragraph.</p><p>Second paragraph.</p>"
+        result = html_to_markdown(html, {})
+        
+        assert "First paragraph." in result
+        assert "Second paragraph." in result
+    
+    def test_links(self):
+        """Test converting links."""
+        html = '<p>Check out <a href="https://example.com">this link</a>.</p>'
+        result = html_to_markdown(html, {})
+        
+        assert "[this link](https://example.com)" in result
+    
+    def test_strip_links(self):
+        """Test stripping links option."""
+        html = '<p>Check out <a href="https://example.com">this link</a>.</p>'
+        result = html_to_markdown(html, {"strip_links": True})
+        
+        assert "[" not in result
+        assert "this link" in result
+    
+    def test_images(self):
+        """Test converting images."""
+        html = '<img src="image.png" alt="Description">'
+        result = html_to_markdown(html, {"include_images": True})
+        
+        assert "![Description](image.png)" in result
+    
+    def test_exclude_images(self):
+        """Test excluding images option."""
+        html = '<p>Text <img src="image.png" alt="Description"> more text</p>'
+        result = html_to_markdown(html, {"include_images": False})
+        
+        assert "image.png" not in result
+    
+    def test_lists(self):
+        """Test converting lists."""
+        html = "<ul><li>Item 1</li><li>Item 2</li></ul>"
+        result = html_to_markdown(html, {})
+        
+        assert "- Item 1" in result or "* Item 1" in result
+        assert "- Item 2" in result or "* Item 2" in result
+    
+    def test_ordered_lists(self):
+        """Test converting ordered lists."""
+        html = "<ol><li>First</li><li>Second</li></ol>"
+        result = html_to_markdown(html, {})
+        
+        assert "1." in result
+        assert "First" in result
+        assert "Second" in result
+    
+    def test_code_block(self):
+        """Test converting code blocks."""
+        html = "<pre><code>print('hello')</code></pre>"
+        result = html_to_markdown(html, {})
+        
+        assert "```" in result
+        assert "print('hello')" in result
+    
+    def test_code_block_with_language(self):
+        """Test converting code blocks with language class."""
+        html = '<pre><code class="language-python">print("hello")</code></pre>'
+        result = html_to_markdown(html, {"code_language": "auto"})
+        
+        assert "```python" in result
+    
+    def test_inline_code(self):
+        """Test converting inline code."""
+        html = "<p>Use <code>git commit</code> to save.</p>"
+        result = html_to_markdown(html, {})
+        
+        assert "`git commit`" in result
+    
+    def test_bold_text(self):
+        """Test converting bold text."""
+        html = "<p>This is <strong>important</strong>.</p>"
+        result = html_to_markdown(html, {})
+        
+        assert "**important**" in result
+    
+    def test_italic_text(self):
+        """Test converting italic text."""
+        html = "<p>This is <em>emphasized</em>.</p>"
+        result = html_to_markdown(html, {})
+        
+        assert "*emphasized*" in result
+    
+    def test_blockquote(self):
+        """Test converting blockquotes."""
+        html = "<blockquote>A quote here.</blockquote>"
+        result = html_to_markdown(html, {})
+        
+        assert "> A quote" in result or ">A quote" in result
+    
+    def test_table(self):
+        """Test converting tables."""
+        html = """
+        <table>
+            <tr><th>Name</th><th>Value</th></tr>
+            <tr><td>A</td><td>1</td></tr>
+        </table>
+        """
+        result = html_to_markdown(html, {})
+        
+        assert "Name" in result
+        assert "Value" in result
+    
+    def test_cleanup_excessive_newlines(self):
+        """Test that excessive newlines are cleaned up."""
+        html = "<p>Text</p>\n\n\n\n\n<p>More text</p>"
+        result = html_to_markdown(html, {})
+        
+        # Should not have more than 2 consecutive blank lines
+        assert "\n\n\n\n" not in result
+
+
+class TestAddMetadata:
+    """Tests for add_metadata function."""
+    
+    def test_add_source_url(self):
+        """Test adding source URL metadata."""
+        result = add_metadata(
+            "# Title\n\nContent",
+            "https://example.com/page",
+            None,
+            {"include_source_url": True, "include_timestamp": False, "include_title": False}
+        )
+        
+        assert "---" in result
+        assert "source: https://example.com/page" in result
+    
+    def test_add_timestamp(self):
+        """Test adding timestamp metadata."""
+        result = add_metadata(
+            "# Title\n\nContent",
+            "https://example.com/page",
+            None,
+            {"include_source_url": False, "include_timestamp": True, "include_title": False}
+        )
+        
+        assert "scraped_at:" in result
+    
+    def test_add_title(self):
+        """Test adding title metadata."""
+        result = add_metadata(
+            "Content",
+            "https://example.com/page",
+            "My Page Title",
+            {"include_source_url": False, "include_timestamp": False, "include_title": True}
+        )
+        
+        assert 'title: "My Page Title"' in result
+    
+    def test_all_metadata(self):
+        """Test adding all metadata."""
+        result = add_metadata(
+            "Content",
+            "https://example.com/page",
+            "Title",
+            {"include_source_url": True, "include_timestamp": True, "include_title": True}
+        )
+        
+        assert "---" in result
+        assert "source:" in result
+        assert "scraped_at:" in result
+        assert "title:" in result
+    
+    def test_no_metadata(self):
+        """Test with no metadata enabled."""
+        result = add_metadata(
+            "Content",
+            "https://example.com/page",
+            "Title",
+            {"include_source_url": False, "include_timestamp": False, "include_title": False}
+        )
+        
+        assert "---" not in result
+        assert result == "Content"
+    
+    def test_title_with_quotes(self):
+        """Test title with quotes is escaped."""
+        result = add_metadata(
+            "Content",
+            "https://example.com/page",
+            'Title with "quotes"',
+            {"include_source_url": False, "include_timestamp": False, "include_title": True}
+        )
+        
+        assert '\\"quotes\\"' in result
