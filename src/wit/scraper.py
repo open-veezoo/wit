@@ -25,9 +25,13 @@ def fetch_page(
         url: URL to fetch.
         scraping_config: Scraping configuration dict with:
             - timeout: Request timeout in seconds
-            - user_agent: User agent string
+            - user_agent: User agent string (also used for JS browser context)
             - javascript: Whether to use JS rendering
             - retries: Number of retry attempts
+            - wait_until: When to consider navigation complete (JS only).
+              Options: "load" (default), "domcontentloaded", "networkidle", "commit"
+            - wait_delay: Additional delay in seconds after page load (JS only).
+              Useful for JS-heavy sites that continue rendering after load.
         fetch_func: Optional custom fetch function for testing.
         
     Returns:
@@ -47,7 +51,9 @@ def fetch_page(
     retries = scraping_config.get("retries", 3)
     
     if use_javascript:
-        return _fetch_with_javascript(url, timeout, retries)
+        wait_until = scraping_config.get("wait_until", "load")
+        wait_delay = scraping_config.get("wait_delay", 0)
+        return _fetch_with_javascript(url, timeout, retries, wait_until, wait_delay, user_agent)
     else:
         return _fetch_static(url, timeout, user_agent, retries)
 
@@ -113,13 +119,27 @@ def _fetch_static(url: str, timeout: int, user_agent: str, retries: int) -> str:
     raise ScrapingError(f"Failed to fetch {url} after {retries} attempts: {last_error}")
 
 
-def _fetch_with_javascript(url: str, timeout: int, retries: int) -> str:
+def _fetch_with_javascript(
+    url: str,
+    timeout: int,
+    retries: int,
+    wait_until: str = "load",
+    wait_delay: float = 0,
+    user_agent: str | None = None,
+) -> str:
     """Fetch page with JavaScript rendering using Playwright.
     
     Args:
         url: URL to fetch.
         timeout: Page load timeout in seconds.
         retries: Number of retry attempts.
+        wait_until: When to consider navigation complete. Options:
+            - "load": Wait for load event (default, most reliable)
+            - "domcontentloaded": Wait for DOMContentLoaded event
+            - "networkidle": Wait until no network connections for 500ms
+            - "commit": Wait for network response and document loading
+        wait_delay: Additional delay in seconds after page load for JS rendering.
+        user_agent: Optional user agent string for the browser context.
         
     Returns:
         Rendered HTML content.
@@ -143,14 +163,26 @@ def _fetch_with_javascript(url: str, timeout: int, retries: int) -> str:
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
-                page = browser.new_page()
+                
+                # Create browser context with user agent if provided
+                context_options = {}
+                if user_agent:
+                    context_options["user_agent"] = user_agent
+                context = browser.new_context(**context_options)
+                page = context.new_page()
                 
                 # Set timeout (playwright uses milliseconds)
                 page.set_default_timeout(timeout * 1000)
                 
-                page.goto(url, wait_until="networkidle")
+                page.goto(url, wait_until=wait_until)
+                
+                # Additional delay for JS-heavy sites to finish rendering
+                if wait_delay > 0:
+                    page.wait_for_timeout(int(wait_delay * 1000))
+                
                 html = page.content()
                 
+                context.close()
                 browser.close()
                 return html
                 
