@@ -28,6 +28,8 @@ def fetch_page(
             - user_agent: User agent string
             - javascript: Whether to use JS rendering
             - retries: Number of retry attempts
+            - wait_until: When to consider navigation complete (JS only).
+              Options: "load" (default), "domcontentloaded", "networkidle", "commit"
         fetch_func: Optional custom fetch function for testing.
         
     Returns:
@@ -47,7 +49,8 @@ def fetch_page(
     retries = scraping_config.get("retries", 3)
     
     if use_javascript:
-        return _fetch_with_javascript(url, timeout, retries)
+        wait_until = scraping_config.get("wait_until", "load")
+        return _fetch_with_javascript(url, timeout, retries, wait_until)
     else:
         return _fetch_static(url, timeout, user_agent, retries)
 
@@ -113,13 +116,18 @@ def _fetch_static(url: str, timeout: int, user_agent: str, retries: int) -> str:
     raise ScrapingError(f"Failed to fetch {url} after {retries} attempts: {last_error}")
 
 
-def _fetch_with_javascript(url: str, timeout: int, retries: int) -> str:
+def _fetch_with_javascript(url: str, timeout: int, retries: int, wait_until: str = "load") -> str:
     """Fetch page with JavaScript rendering using Playwright.
     
     Args:
         url: URL to fetch.
         timeout: Page load timeout in seconds.
         retries: Number of retry attempts.
+        wait_until: When to consider navigation complete. Options:
+            - "load": Wait for load event (default, most reliable)
+            - "domcontentloaded": Wait for DOMContentLoaded event
+            - "networkidle": Wait until no network connections for 500ms
+            - "commit": Wait for network response and document loading
         
     Returns:
         Rendered HTML content.
@@ -148,7 +156,7 @@ def _fetch_with_javascript(url: str, timeout: int, retries: int) -> str:
                 # Set timeout (playwright uses milliseconds)
                 page.set_default_timeout(timeout * 1000)
                 
-                page.goto(url, wait_until="networkidle")
+                page.goto(url, wait_until=wait_until)
                 html = page.content()
                 
                 browser.close()

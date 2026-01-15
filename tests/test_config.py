@@ -107,6 +107,30 @@ class TestWitConfig:
         assert config.sites[0].metadata["include_timestamp"] is True
         assert config.sites[0].metadata["include_title"] is True
     
+    def test_default_scraping_wait_until(self):
+        """Test default wait_until setting for JS rendering."""
+        config = WitConfig(base_url="https://example.com")
+        
+        assert config.sites[0].scraping["wait_until"] == "load"
+    
+    def test_custom_scraping_wait_until(self):
+        """Test custom wait_until setting is preserved."""
+        config = WitConfig(
+            base_url="https://example.com",
+            scraping={"wait_until": "networkidle"}
+        )
+        
+        assert config.sites[0].scraping["wait_until"] == "networkidle"
+    
+    def test_custom_scraping_wait_until_domcontentloaded(self):
+        """Test domcontentloaded wait_until setting."""
+        config = WitConfig(
+            base_url="https://example.com",
+            scraping={"wait_until": "domcontentloaded"}
+        )
+        
+        assert config.sites[0].scraping["wait_until"] == "domcontentloaded"
+    
     def test_multi_site_config(self):
         """Test creating a multi-site config directly."""
         sites = [
@@ -238,6 +262,21 @@ pages:
         
         config = load_config(str(config_file))
         assert config.base_url == "https://example.com"
+    
+    def test_load_config_with_wait_until(self, tmp_path):
+        """Test loading config with custom wait_until setting."""
+        config_file = tmp_path / "wit.yaml"
+        config_file.write_text("""
+base_url: https://example.com
+scraping:
+  javascript: true
+  wait_until: domcontentloaded
+""")
+        
+        config = load_config(config_file)
+        
+        assert config.sites[0].scraping["javascript"] is True
+        assert config.sites[0].scraping["wait_until"] == "domcontentloaded"
     
     def test_load_multi_site_config(self, tmp_path):
         """Test loading a multi-site config file."""

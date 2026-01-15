@@ -24,6 +24,7 @@ def _get_default_scraping(custom: dict) -> dict:
         "user_agent": custom.get("user_agent", "wit/1.0 (+https://github.com/open-veezoo/wit)"),
         "javascript": custom.get("javascript", False),
         "retries": custom.get("retries", 3),
+        "wait_until": custom.get("wait_until", "load"),
     }
 
 
@@ -351,6 +352,7 @@ scraping:
   timeout: 30             # request timeout in seconds
   user_agent: "wit/1.0"   # custom user agent
   javascript: false       # enable JS rendering (requires playwright)
+  wait_until: load        # JS only: load, domcontentloaded, networkidle, commit
 
 # Markdown conversion options
 markdown:
@@ -433,6 +435,7 @@ scraping:
   timeout: 30
   user_agent: "wit/1.0"
   javascript: false
+  wait_until: load        # JS only: load, domcontentloaded, networkidle, commit
 
 markdown:
   heading_style: atx
