@@ -2,9 +2,10 @@
 
 import pytest
 
-from wit.config import WitConfig
+from wit.config import WitConfig, SiteConfig
 from wit.discovery import (
     discover_pages,
+    discover_pages_for_site,
     discover_from_urls,
     discover_from_sitemap,
     discover_from_crawl,
@@ -342,8 +343,60 @@ class TestDiscoverFromCrawl:
         assert "https://other.com/page" not in urls
 
 
+class TestDiscoverPagesForSite:
+    """Tests for discover_pages_for_site function."""
+    
+    def test_discover_with_urls(self):
+        """Test discovery using URL list."""
+        site = SiteConfig(
+            name="example",
+            base_url="https://example.com",
+            pages={"urls": ["/", "/about"]}
+        )
+        
+        urls = discover_pages_for_site(site)
+        
+        assert "https://example.com/" in urls
+        assert "https://example.com/about" in urls
+    
+    def test_discover_default_to_base_url(self):
+        """Test that empty config defaults to base URL."""
+        site = SiteConfig(
+            name="example",
+            base_url="https://example.com",
+            pages={}
+        )
+        
+        urls = discover_pages_for_site(site)
+        
+        assert "https://example.com" in urls
+    
+    def test_discover_with_sitemap(self):
+        """Test discovery using sitemap."""
+        sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+            <url><loc>https://example.com/page1</loc></url>
+            <url><loc>https://example.com/page2</loc></url>
+        </urlset>
+        """
+        
+        def mock_fetch(url):
+            return sitemap_xml
+        
+        site = SiteConfig(
+            name="example",
+            base_url="https://example.com",
+            pages={"sitemap": "/sitemap.xml"}
+        )
+        
+        urls = discover_pages_for_site(site, fetch_func=mock_fetch)
+        
+        assert "https://example.com/page1" in urls
+        assert "https://example.com/page2" in urls
+
+
 class TestDiscoverPages:
-    """Tests for discover_pages function."""
+    """Tests for discover_pages function (legacy/backwards compatibility)."""
     
     def test_discover_with_urls(self):
         """Test discovery using URL list."""
@@ -367,3 +420,25 @@ class TestDiscoverPages:
         urls = discover_pages(config)
         
         assert "https://example.com" in urls
+    
+    def test_discover_pages_uses_first_site(self):
+        """Test that discover_pages uses the first site for multi-site configs."""
+        sites = [
+            SiteConfig(
+                name="site1",
+                base_url="https://site1.com",
+                pages={"urls": ["/page1"]}
+            ),
+            SiteConfig(
+                name="site2",
+                base_url="https://site2.com",
+                pages={"urls": ["/page2"]}
+            ),
+        ]
+        config = WitConfig(sites=sites)
+        
+        urls = discover_pages(config)
+        
+        # Should only return pages from first site
+        assert "https://site1.com/page1" in urls
+        assert "https://site2.com/page2" not in urls

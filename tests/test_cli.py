@@ -66,6 +66,19 @@ class TestInit:
             
             assert result.exit_code == 0
             assert "https://example.com" in Path("wit.yaml").read_text()
+    
+    def test_init_multi_site(self, runner, tmp_path):
+        """Test init with --multi-site flag."""
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            result = runner.invoke(cli, [
+                "init", 
+                "--base-url", "https://example.com",
+                "--multi-site"
+            ])
+            
+            assert result.exit_code == 0
+            config_content = Path("wit.yaml").read_text()
+            assert "sites:" in config_content
 
 
 class TestList:
@@ -109,6 +122,106 @@ pages:
             
             assert result.exit_code == 1
             assert "not found" in result.output
+    
+    def test_list_multi_site(self, runner, tmp_path):
+        """Test listing pages from multiple sites."""
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            Path("wit.yaml").write_text("""
+sites:
+  - name: docs
+    base_url: https://docs.example.com
+    pages:
+      urls:
+        - /
+        - /guide
+  - name: blog
+    base_url: https://blog.example.com
+    pages:
+      urls:
+        - /
+""")
+            result = runner.invoke(cli, ["list"])
+            
+            assert result.exit_code == 0
+            assert "docs" in result.output
+            assert "blog" in result.output
+            assert "Total: 3 pages" in result.output
+    
+    def test_list_site_filter(self, runner, tmp_path):
+        """Test listing pages with site filter."""
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            Path("wit.yaml").write_text("""
+sites:
+  - name: docs
+    base_url: https://docs.example.com
+    pages:
+      urls:
+        - /
+        - /guide
+  - name: blog
+    base_url: https://blog.example.com
+    pages:
+      urls:
+        - /
+""")
+            result = runner.invoke(cli, ["list", "--site", "docs"])
+            
+            assert result.exit_code == 0
+            assert "docs.example.com" in result.output
+            # Should only show docs site pages
+            assert "2 pages" in result.output
+    
+    def test_list_invalid_site_filter(self, runner, tmp_path):
+        """Test listing with invalid site filter."""
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            Path("wit.yaml").write_text("""
+sites:
+  - name: docs
+    base_url: https://docs.example.com
+    pages:
+      urls:
+        - /
+""")
+            result = runner.invoke(cli, ["list", "--site", "nonexistent"])
+            
+            assert result.exit_code == 1
+            assert "No sites found" in result.output
+
+
+class TestSites:
+    """Tests for sites command."""
+    
+    def test_list_sites(self, runner, tmp_path):
+        """Test listing configured sites."""
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            Path("wit.yaml").write_text("""
+sites:
+  - name: docs
+    base_url: https://docs.example.com
+    output_dir: content/docs
+  - name: blog
+    base_url: https://blog.example.com
+    output_dir: content/blog
+""")
+            result = runner.invoke(cli, ["sites"])
+            
+            assert result.exit_code == 0
+            assert "docs" in result.output
+            assert "blog" in result.output
+            assert "https://docs.example.com" in result.output
+            assert "https://blog.example.com" in result.output
+    
+    def test_list_sites_single_site(self, runner, tmp_path):
+        """Test listing sites for single-site config."""
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            Path("wit.yaml").write_text("""
+base_url: https://example.com
+output_dir: content
+""")
+            result = runner.invoke(cli, ["sites"])
+            
+            assert result.exit_code == 0
+            assert "https://example.com" in result.output
 
 
 class TestScrapeUrl:

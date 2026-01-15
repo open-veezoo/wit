@@ -4,39 +4,41 @@ import re
 import time
 import xml.etree.ElementTree as ET
 from collections import deque
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
-from wit.config import WitConfig
+if TYPE_CHECKING:
+    from wit.config import SiteConfig, WitConfig
+
 from wit.utils import get_logger, is_same_domain, matches_pattern, normalize_url
 
 
-def discover_pages(config: WitConfig, fetch_func: Callable | None = None) -> list[str]:
-    """Discover all pages to scrape based on configuration.
+def discover_pages_for_site(site: "SiteConfig", fetch_func: Callable | None = None) -> list[str]:
+    """Discover all pages to scrape for a single site.
     
     Args:
-        config: WitConfig instance with page discovery settings.
+        site: SiteConfig instance with page discovery settings.
         fetch_func: Optional custom fetch function for testing.
         
     Returns:
         List of absolute URLs to scrape.
     """
     logger = get_logger()
-    pages = config.pages
+    pages = site.pages
     urls = set()
     
     # Option 1: Explicit URL list
     if "urls" in pages:
-        discovered = discover_from_urls(config.base_url, pages["urls"], config.scraping, fetch_func)
+        discovered = discover_from_urls(site.base_url, pages["urls"], site.scraping, fetch_func)
         urls.update(discovered)
         logger.debug(f"Discovered {len(discovered)} pages from URL list")
     
     # Option 2: Sitemap
     if "sitemap" in pages:
-        discovered = discover_from_sitemap(config.base_url, pages["sitemap"], config.scraping, fetch_func)
+        discovered = discover_from_sitemap(site.base_url, pages["sitemap"], site.scraping, fetch_func)
         urls.update(discovered)
         logger.debug(f"Discovered {len(discovered)} pages from sitemap")
     
@@ -44,13 +46,13 @@ def discover_pages(config: WitConfig, fetch_func: Callable | None = None) -> lis
     if "crawl" in pages:
         crawl_config = pages["crawl"]
         discovered = discover_from_crawl(
-            base_url=config.base_url,
+            base_url=site.base_url,
             start=crawl_config.get("start", "/"),
             max_depth=crawl_config.get("max_depth", 2),
             max_pages=crawl_config.get("max_pages", 50),
             include=crawl_config.get("include", []),
             exclude=crawl_config.get("exclude", []),
-            scraping_config=config.scraping,
+            scraping_config=site.scraping,
             fetch_func=fetch_func,
         )
         urls.update(discovered)
@@ -59,9 +61,28 @@ def discover_pages(config: WitConfig, fetch_func: Callable | None = None) -> lis
     # If no discovery method specified, default to just the base URL
     if not urls:
         logger.warning("No page discovery method specified, defaulting to base URL only")
-        urls.add(config.base_url)
+        urls.add(site.base_url)
     
     return sorted(urls)
+
+
+def discover_pages(config: "WitConfig", fetch_func: Callable | None = None) -> list[str]:
+    """Discover all pages to scrape based on configuration.
+    
+    Deprecated: Use discover_pages_for_site instead for multi-site support.
+    This function is kept for backwards compatibility and only returns
+    pages for the first site.
+    
+    Args:
+        config: WitConfig instance with page discovery settings.
+        fetch_func: Optional custom fetch function for testing.
+        
+    Returns:
+        List of absolute URLs to scrape.
+    """
+    if config.sites:
+        return discover_pages_for_site(config.sites[0], fetch_func)
+    return []
 
 
 def discover_from_urls(
