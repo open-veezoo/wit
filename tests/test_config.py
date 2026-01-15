@@ -131,6 +131,21 @@ class TestWitConfig:
         
         assert config.sites[0].scraping["wait_until"] == "domcontentloaded"
     
+    def test_default_scraping_wait_delay(self):
+        """Test default wait_delay setting for JS rendering."""
+        config = WitConfig(base_url="https://example.com")
+        
+        assert config.sites[0].scraping["wait_delay"] == 0
+    
+    def test_custom_scraping_wait_delay(self):
+        """Test custom wait_delay setting is preserved."""
+        config = WitConfig(
+            base_url="https://example.com",
+            scraping={"wait_delay": 2.5}
+        )
+        
+        assert config.sites[0].scraping["wait_delay"] == 2.5
+    
     def test_multi_site_config(self):
         """Test creating a multi-site config directly."""
         sites = [
@@ -277,6 +292,23 @@ scraping:
         
         assert config.sites[0].scraping["javascript"] is True
         assert config.sites[0].scraping["wait_until"] == "domcontentloaded"
+    
+    def test_load_config_with_wait_delay(self, tmp_path):
+        """Test loading config with custom wait_delay setting."""
+        config_file = tmp_path / "wit.yaml"
+        config_file.write_text("""
+base_url: https://example.com
+scraping:
+  javascript: true
+  wait_until: load
+  wait_delay: 3.0
+""")
+        
+        config = load_config(config_file)
+        
+        assert config.sites[0].scraping["javascript"] is True
+        assert config.sites[0].scraping["wait_until"] == "load"
+        assert config.sites[0].scraping["wait_delay"] == 3.0
     
     def test_load_multi_site_config(self, tmp_path):
         """Test loading a multi-site config file."""
