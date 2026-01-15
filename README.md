@@ -12,6 +12,7 @@
 - 🖥️ **CLI interface** for easy use in GitHub Actions
 - ⚙️ **Configurable via YAML** config file
 - 📄 **Support for multiple pages/URLs**
+- 🌐 **Multi-site support** - track multiple websites in one config
 - 🗺️ **Sitemap support** (auto-discover pages)
 - 🔄 **HTML to clean markdown** conversion
 - 🎯 **Selective content extraction** (CSS selectors)
@@ -79,14 +80,25 @@ wit scrape --config my-config.yaml
 # Scrape and commit changes
 wit scrape --commit
 
+# Scrape only specific site(s) from multi-site config
+wit scrape --site docs
+wit scrape --site docs,blog  # comma-separated
+
 # Scrape a single URL (ad-hoc, no config needed)
 wit scrape-url https://example.com/page --output content/page.md
 
 # Initialize a new config file
 wit init
 
+# Initialize a multi-site config template
+wit init --multi-site
+
 # List pages that would be scraped (dry run)
 wit list
+wit list --site docs  # list pages from specific site only
+
+# List all configured sites
+wit sites
 
 # Verbose output
 wit -v scrape
@@ -317,6 +329,69 @@ scraping:
 selectors:
   content: ["#app main", .page-content]
   remove: [.modal, .toast, .loading-spinner]
+```
+
+### Multi-Site Tracking
+
+Track multiple websites in a single config file:
+
+```yaml
+# Define multiple sites to track
+sites:
+  - name: docs
+    base_url: https://docs.example.com
+    output_dir: content/docs
+    pages:
+      sitemap: /sitemap.xml
+    selectors:
+      content: [.docs-content, main]
+  
+  - name: blog
+    base_url: https://blog.example.com
+    output_dir: content/blog
+    pages:
+      crawl:
+        start: /
+        max_depth: 2
+    selectors:
+      content: [article, .post-content]
+  
+  - name: changelog
+    base_url: https://changelog.example.com
+    output_dir: content/changelog
+    pages:
+      urls:
+        - /
+
+# Global settings (apply to all sites unless overridden)
+selectors:
+  remove: [nav, footer, header, .ads, .sidebar]
+
+scraping:
+  delay: 1.0
+  timeout: 30
+
+git:
+  message_template: "Update {changed_count} page(s): {changed_files}"
+```
+
+Then scrape all sites or specific ones:
+
+```bash
+# Scrape all sites
+wit scrape
+
+# Scrape only the docs site
+wit scrape --site docs
+
+# Scrape docs and blog
+wit scrape --site docs,blog
+
+# List all configured sites
+wit sites
+
+# List pages from specific site
+wit list --site blog
 ```
 
 ## Error Handling
