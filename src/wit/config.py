@@ -36,6 +36,7 @@ def _get_default_markdown(custom: dict) -> dict:
         "strip_links": custom.get("strip_links", False),
         "include_images": custom.get("include_images", True),
         "code_language": custom.get("code_language", "auto"),
+        "normalize_urls": custom.get("normalize_urls", True),
     }
 
 
@@ -362,6 +363,7 @@ markdown:
   strip_links: false      # remove hyperlinks
   include_images: true    # include image references
   code_language: auto     # try to detect code block languages
+  normalize_urls: true    # strip tracking parameters from URLs (utm_*, fbclid, etc.)
 
 # Git commit settings (used with --commit flag)
 git:
@@ -444,6 +446,7 @@ markdown:
   heading_style: atx
   strip_links: false
   include_images: true
+  normalize_urls: true    # strip tracking parameters from URLs
 
 metadata:
   include_source_url: true

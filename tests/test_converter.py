@@ -48,6 +48,53 @@ class TestHtmlToMarkdown:
         assert "[" not in result
         assert "this link" in result
     
+    def test_normalize_urls_strips_tracking_params(self):
+        """Test that normalize_urls strips tracking parameters from links."""
+        html = '<p><a href="https://example.com/page?utm_source=google&id=123">Link</a></p>'
+        result = html_to_markdown(html, {"normalize_urls": True})
+        
+        assert "utm_source" not in result
+        assert "id=123" in result
+        assert "[Link]" in result
+    
+    def test_normalize_urls_strips_fbclid(self):
+        """Test stripping Facebook click ID from links."""
+        html = '<p><a href="https://example.com/page?fbclid=abc123">Link</a></p>'
+        result = html_to_markdown(html, {"normalize_urls": True})
+        
+        assert "fbclid" not in result
+        assert "https://example.com/page" in result
+    
+    def test_normalize_urls_strips_hubspot_params(self):
+        """Test stripping HubSpot tracking parameters from links."""
+        html = '<p><a href="https://example.com/page?__hstc=abc&__hssc=def">Link</a></p>'
+        result = html_to_markdown(html, {"normalize_urls": True})
+        
+        assert "__hstc" not in result
+        assert "__hssc" not in result
+    
+    def test_normalize_urls_default_enabled(self):
+        """Test that URL normalization is enabled by default."""
+        html = '<p><a href="https://example.com/page?utm_source=google">Link</a></p>'
+        result = html_to_markdown(html, {})  # No options, use defaults
+        
+        assert "utm_source" not in result
+    
+    def test_normalize_urls_can_be_disabled(self):
+        """Test that URL normalization can be disabled."""
+        html = '<p><a href="https://example.com/page?utm_source=google">Link</a></p>'
+        result = html_to_markdown(html, {"normalize_urls": False})
+        
+        assert "utm_source" in result
+    
+    def test_normalize_urls_preserves_non_tracking_params(self):
+        """Test that non-tracking query parameters are preserved."""
+        html = '<p><a href="https://example.com/search?q=test&page=2">Link</a></p>'
+        result = html_to_markdown(html, {"normalize_urls": True})
+        
+        assert "q=test" in result
+        assert "page=2" in result
+    
     def test_images(self):
         """Test converting images."""
         html = '<img src="image.png" alt="Description">'

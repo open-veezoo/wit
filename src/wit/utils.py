@@ -4,7 +4,41 @@ import logging
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urljoin, urlparse, urlunparse
+from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
+
+
+# Tracking parameters to strip from URLs
+# These cause unnecessary diffs between scrapes due to dynamic values
+TRACKING_PARAMS = {
+    # HubSpot
+    "__hstc",
+    "__hssc",
+    "__hsfp",
+    # Google Analytics / Ads
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "gclid",
+    "gclsrc",
+    # Facebook
+    "fbclid",
+    # Microsoft Ads
+    "msclkid",
+    # Twitter
+    "twclid",
+    # LinkedIn
+    "li_fat_id",
+    # Generic tracking
+    "_ga",
+    "_gl",
+    "mc_cid",
+    "mc_eid",
+    # Session/cache busting
+    "ref",
+    "source",
+}
 
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> logging.Logger:
@@ -69,6 +103,51 @@ def normalize_url(url: str, base_url: str) -> str:
     
     # Handle relative URLs without leading slash
     return urljoin(base_url + "/", url)
+
+
+def strip_tracking_params(url: str) -> str:
+    """Remove tracking parameters from a URL.
+    
+    Strips common tracking parameters (HubSpot, Google Analytics, Facebook, etc.)
+    that cause unnecessary diffs between scrapes due to dynamic nonces and IDs.
+    
+    Args:
+        url: The URL to normalize.
+        
+    Returns:
+        URL with tracking parameters removed.
+    """
+    try:
+        parsed = urlparse(url)
+        
+        # Skip if no query string
+        if not parsed.query:
+            return url
+        
+        # Parse query parameters
+        params = parse_qs(parsed.query, keep_blank_values=True)
+        
+        # Filter out tracking parameters (case-insensitive)
+        filtered_params = {
+            k: v for k, v in params.items()
+            if k.lower() not in TRACKING_PARAMS
+        }
+        
+        # Rebuild URL
+        new_query = urlencode(filtered_params, doseq=True) if filtered_params else ""
+        normalized = urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment,
+        ))
+        
+        return normalized
+    except Exception:
+        # If parsing fails, return original URL
+        return url
 
 
 def url_to_filepath(url: str, base_url: str, output_dir: Path) -> Path:

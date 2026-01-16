@@ -5,7 +5,7 @@ from typing import Any
 
 from markdownify import markdownify as md, MarkdownConverter
 
-from wit.utils import get_logger
+from wit.utils import get_logger, strip_tracking_params
 
 
 class WitMarkdownConverter(MarkdownConverter):
@@ -15,12 +15,21 @@ class WitMarkdownConverter(MarkdownConverter):
         self._strip_links = options.pop("strip_links", False)
         self._include_images = options.pop("include_images", True)
         self._code_language = options.pop("code_language", "auto")
+        self._normalize_urls = options.pop("normalize_urls", True)
         super().__init__(**options)
     
     def convert_a(self, el, text, *args, **kwargs):
-        """Convert anchor tags, optionally stripping links."""
+        """Convert anchor tags, optionally stripping links or normalizing URLs."""
         if self._strip_links:
             return text
+        
+        # Normalize URL by stripping tracking parameters
+        if self._normalize_urls:
+            href = el.get("href")
+            if href:
+                normalized_href = strip_tracking_params(href)
+                el["href"] = normalized_href
+        
         return super().convert_a(el, text, *args, **kwargs)
     
     def convert_img(self, el, text, *args, **kwargs):
@@ -76,6 +85,7 @@ def html_to_markdown(html: str, options: dict) -> str:
             - strip_links: Remove hyperlinks
             - include_images: Include image references
             - code_language: "auto" to detect code languages
+            - normalize_urls: Strip tracking parameters from URLs (default: True)
             
     Returns:
         Markdown string.
@@ -86,6 +96,7 @@ def html_to_markdown(html: str, options: dict) -> str:
     strip_links = options.get("strip_links", False)
     include_images = options.get("include_images", True)
     code_language = options.get("code_language", "auto")
+    normalize_urls = options.get("normalize_urls", True)
     
     # Map heading style to markdownify format
     if heading_style == "setext":
@@ -99,6 +110,7 @@ def html_to_markdown(html: str, options: dict) -> str:
             strip_links=strip_links,
             include_images=include_images,
             code_language=code_language,
+            normalize_urls=normalize_urls,
             bullets="-",
             autolinks=True,
             escape_asterisks=False,
