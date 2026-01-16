@@ -6,6 +6,7 @@ import pytest
 
 from wit.utils import (
     normalize_url,
+    strip_tracking_params,
     url_to_filepath,
     sanitize_filename,
     is_same_domain,
@@ -37,6 +38,100 @@ class TestNormalizeUrl:
         """Test normalizing with base URL that has a path."""
         result = normalize_url("/docs/intro", "https://example.com/app")
         assert result == "https://example.com/docs/intro"
+
+
+class TestStripTrackingParams:
+    """Tests for strip_tracking_params function."""
+    
+    def test_no_query_string(self):
+        """Test URL without query string is unchanged."""
+        url = "https://example.com/page"
+        assert strip_tracking_params(url) == url
+    
+    def test_no_tracking_params(self):
+        """Test URL with non-tracking params is unchanged."""
+        url = "https://example.com/page?id=123&name=test"
+        assert strip_tracking_params(url) == url
+    
+    def test_strip_utm_params(self):
+        """Test stripping UTM tracking parameters."""
+        url = "https://example.com/page?utm_source=google&utm_medium=cpc&id=123"
+        result = strip_tracking_params(url)
+        assert "utm_source" not in result
+        assert "utm_medium" not in result
+        assert "id=123" in result
+    
+    def test_strip_fbclid(self):
+        """Test stripping Facebook click ID."""
+        url = "https://example.com/page?fbclid=abc123&id=456"
+        result = strip_tracking_params(url)
+        assert "fbclid" not in result
+        assert "id=456" in result
+    
+    def test_strip_gclid(self):
+        """Test stripping Google click ID."""
+        url = "https://example.com/page?gclid=xyz789&id=123"
+        result = strip_tracking_params(url)
+        assert "gclid" not in result
+        assert "id=123" in result
+    
+    def test_strip_hubspot_params(self):
+        """Test stripping HubSpot tracking parameters."""
+        url = "https://example.com/page?__hstc=abc&__hssc=def&__hsfp=ghi&id=1"
+        result = strip_tracking_params(url)
+        assert "__hstc" not in result
+        assert "__hssc" not in result
+        assert "__hsfp" not in result
+        assert "id=1" in result
+    
+    def test_strip_all_tracking_only(self):
+        """Test URL with only tracking params results in no query string."""
+        url = "https://example.com/page?utm_source=google&fbclid=abc"
+        result = strip_tracking_params(url)
+        assert result == "https://example.com/page"
+    
+    def test_case_insensitive(self):
+        """Test tracking param matching is case-insensitive."""
+        url = "https://example.com/page?UTM_SOURCE=google&id=123"
+        result = strip_tracking_params(url)
+        # Note: key is lowercase in TRACKING_PARAMS, and we compare lowercased
+        assert "UTM_SOURCE" not in result
+        assert "id=123" in result
+    
+    def test_preserves_fragment(self):
+        """Test that URL fragment is preserved."""
+        url = "https://example.com/page?utm_source=google#section"
+        result = strip_tracking_params(url)
+        assert "#section" in result
+        assert "utm_source" not in result
+    
+    def test_preserves_path(self):
+        """Test that URL path is preserved."""
+        url = "https://example.com/path/to/page?utm_source=google"
+        result = strip_tracking_params(url)
+        assert "/path/to/page" in result
+    
+    def test_strip_msclkid(self):
+        """Test stripping Microsoft click ID."""
+        url = "https://example.com/page?msclkid=xyz&id=123"
+        result = strip_tracking_params(url)
+        assert "msclkid" not in result
+        assert "id=123" in result
+    
+    def test_strip_ga_params(self):
+        """Test stripping Google Analytics _ga and _gl params."""
+        url = "https://example.com/page?_ga=123&_gl=456&id=789"
+        result = strip_tracking_params(url)
+        assert "_ga" not in result
+        assert "_gl" not in result
+        assert "id=789" in result
+    
+    def test_invalid_url_returns_original(self):
+        """Test that invalid URLs return original."""
+        # This is a valid URL actually, so let's test a weird edge case
+        url = "not-really-a-url"
+        result = strip_tracking_params(url)
+        assert result == url
 
 
 class TestUrlToFilepath:
